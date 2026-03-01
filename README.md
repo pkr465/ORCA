@@ -6,22 +6,17 @@ ORCA is an LLM-powered, multi-agent compliance auditing framework for **C/C++ co
 
 ## Quick Start
 
+The fastest way to get ORCA running is the installer script. It detects your OS, installs Python 3.9+ if needed, creates a virtual environment, installs all dependencies, bootstraps PostgreSQL, sets up `.env`, and validates the installation:
+
 ```bash
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate   # Linux / macOS
-# .venv\Scripts\activate    # Windows
+chmod +x install.sh
+./install.sh
+```
 
-# Install dependencies
-pip install -r requirements.txt
+Once installed, activate the virtual environment and start using ORCA:
 
-# Set up environment variables
-cp env.example .env
-# Edit .env with your API keys and database credentials
-export $(grep -v '^#' .env | xargs)
-
-# Bootstrap PostgreSQL (installs, starts, creates db — one-time)
-python db/bootstrap_db.py
+```bash
+source .venv/bin/activate
 
 # Run a basic audit on your source code
 python main.py audit --codebase-path ./src
@@ -39,7 +34,7 @@ python main.py fixer-workflow --excel-file out/detailed_code_review.xlsx
 python main.py pipeline --codebase-path ./src
 
 # Launch the interactive web UI
-streamlit run ui/app.py
+./launch.sh
 
 # View CLI help
 python main.py --help
@@ -51,7 +46,22 @@ python main.py --help
 
 **Requirements:** Python 3.9+, PostgreSQL 12+
 
-### 1. Install Python Dependencies
+### Option A: Automated Install (Recommended)
+
+`install.sh` handles the full setup — OS detection, Python installation, virtual environment, pip dependencies, PostgreSQL bootstrap, `.env` configuration, CLI tool install, and validation:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The installer supports macOS (Homebrew), Debian/Ubuntu (apt), RHEL/Fedora (dnf/yum), Arch Linux (pacman), and WSL.
+
+### Option B: Manual Install
+
+If you prefer manual control over each step:
+
+**1. Python & Dependencies**
 
 ```bash
 # Create a virtual environment
@@ -73,7 +83,7 @@ pip install -e .
 # Now you can use `orca` instead of `python main.py`
 ```
 
-### 2. Bootstrap PostgreSQL
+**2. Bootstrap PostgreSQL**
 
 The bootstrap script handles everything — installs PostgreSQL via your system package manager (Homebrew on macOS, apt on Debian/Ubuntu, dnf on RHEL/Fedora), starts the service, creates the user, database, schema, tables, and indexes:
 
@@ -92,6 +102,13 @@ If you prefer manual control, you can use `db/setup_db.py` instead (assumes Post
 
 ```bash
 python db/setup_db.py --host localhost --user orca --database orca_feedback
+```
+
+**3. Environment Variables**
+
+```bash
+cp env.example .env
+# Edit .env with your API keys (LLM_API_KEY, QGENIE_API_KEY)
 ```
 
 ---

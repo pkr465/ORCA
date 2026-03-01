@@ -285,6 +285,21 @@ install_system_tools() {
 }
 
 ################################################################################
+# Step 5b: Install ORCA as CLI Tool
+################################################################################
+
+install_cli_tool() {
+    log_step "5b" "Installing ORCA as a CLI tool..."
+
+    if [[ -f "${PROJECT_ROOT}/setup.py" ]]; then
+        pip install -e "${PROJECT_ROOT}"
+        log_success "ORCA CLI installed — you can now use 'orca' instead of 'python main.py'"
+    else
+        log_warning "setup.py not found — skipping CLI install"
+    fi
+}
+
+################################################################################
 # Step 6: Set Up .env Configuration
 ################################################################################
 
@@ -330,11 +345,33 @@ EOF
 }
 
 ################################################################################
-# Step 7: Create Output Directories
+# Step 7: Bootstrap PostgreSQL
+################################################################################
+
+bootstrap_postgres() {
+    log_step "7" "Setting up PostgreSQL..."
+
+    if [[ -f "${PROJECT_ROOT}/db/bootstrap_db.py" ]]; then
+        read -p "Bootstrap PostgreSQL (install, start, create DB)? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            python3 "${PROJECT_ROOT}/db/bootstrap_db.py"
+            log_success "PostgreSQL bootstrapped successfully"
+        else
+            log_warning "Skipping PostgreSQL bootstrap — run 'python db/bootstrap_db.py' later"
+        fi
+    else
+        log_warning "db/bootstrap_db.py not found — skipping PostgreSQL setup"
+        log_warning "Run 'python db/bootstrap_db.py' manually after setup"
+    fi
+}
+
+################################################################################
+# Step 8: Create Output Directories
 ################################################################################
 
 create_output_dirs() {
-    log_step "7" "Creating output directories..."
+    log_step "8" "Creating output directories..."
 
     mkdir -p "${PROJECT_ROOT}/out"
     mkdir -p "${PROJECT_ROOT}/out/reports"
@@ -345,11 +382,11 @@ create_output_dirs() {
 }
 
 ################################################################################
-# Step 8: Validate Installation
+# Step 9: Validate Installation
 ################################################################################
 
 validate_installation() {
-    log_step "8" "Validating installation..."
+    log_step "9" "Validating installation..."
 
     VALIDATION_PASSED=true
 
@@ -406,11 +443,11 @@ validate_installation() {
 }
 
 ################################################################################
-# Step 9: Print Launch Instructions
+# Step 10: Print Launch Instructions
 ################################################################################
 
 print_launch_instructions() {
-    log_step "9" "Installation complete!"
+    log_step "10" "Installation complete!"
 
     echo
     log_success "ORCA has been successfully installed!"
@@ -437,7 +474,9 @@ print_launch_instructions() {
 
     # CLI usage
     echo -e "${BOLD}3. Run ORCA from Command Line${NC}"
-    echo -e "   ${CYAN}python main.py --codebase-path /path/to/your/code${NC}"
+    echo -e "   ${CYAN}orca audit --codebase-path /path/to/your/code${NC}"
+    echo -e "   ${CYAN}orca pipeline --codebase-path /path/to/your/code${NC}"
+    echo -e "   (or use ${CYAN}python main.py${NC} instead of ${CYAN}orca${NC})"
     echo
 
     # Configuration
@@ -481,7 +520,13 @@ main() {
     install_system_tools
     echo
 
+    install_cli_tool
+    echo
+
     setup_env
+    echo
+
+    bootstrap_postgres
     echo
 
     create_output_dirs
