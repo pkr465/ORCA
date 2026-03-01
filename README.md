@@ -210,10 +210,10 @@ Any string value in `config.yaml` supports `${VAR:-default}` interpolation. All 
 ORCA includes a full-featured interactive web dashboard built with Streamlit.
 
 ```bash
-# Install Streamlit
-pip install streamlit
+# Launch the UI (handles venv activation and dependency checks)
+./launch.sh
 
-# Launch the UI
+# Or launch directly with Streamlit
 streamlit run ui/app.py
 ```
 
@@ -568,7 +568,7 @@ Seven static analyzers perform regex/heuristic checks across four compliance dom
 
 | Analyzer            | Domain     | Rules Checked | Key Checks                                    |
 |---------------------|------------|:-------------:|-----------------------------------------------|
-| `StyleAnalyzer`     | style      | STYLE-001–007 | Indentation, line length, braces, naming       |
+| `StyleAnalyzer`     | style      | INDENT-001–002, STYLE-001–007 | Indentation, line length, braces, naming |
 | `LicenseAnalyzer`   | license    | LICENSE-001–006 | SPDX headers, copyright, allowed licenses    |
 | `WhitespaceAnalyzer`| style      | WHITESPACE-001–006 | Trailing spaces, mixed tabs, line endings |
 | `MacroAnalyzer`     | style      | MACRO-001–004 | do-while wrappers, paren args, naming         |
@@ -730,6 +730,8 @@ Create a new YAML file in `rules/` following the structure of `linux_kernel.yaml
 ORCA/
 ├── main.py                    # CLI entry point and pipeline orchestrator
 ├── fixer_workflow.py          # HITL fixer workflow orchestrator
+├── install.sh                 # Automated installer (OS detection, deps, DB, validation)
+├── launch.sh                  # Streamlit dashboard launcher
 ├── ui/
 │   └── app.py                 # Streamlit web UI dashboard
 ├── config.yaml                # Default configuration (all options documented)
@@ -741,7 +743,7 @@ ORCA/
 ├── constraints/               # User-defined constraint files for LLM injection
 │   └── common_constraints.md  #   Open-source C/C++ compliance constraints (all domains)
 ├── requirements.txt           # Python dependencies
-├── setup.py                   # Package installer
+├── setup.py                   # Package installer (provides `orca` CLI)
 │
 ├── agents/
 │   ├── analyzers/             # 7 static analyzers
@@ -799,23 +801,25 @@ ORCA/
 ├── utils/                     # Utility modules
 │   ├── config_parser.py       #   YAML config + env var interpolation
 │   ├── file_utils.py          #   Safe file I/O utilities
-│   ├── llm_tools.py           #   LLM client abstraction (base)
+│   ├── llm_tools.py           #   LLM client abstraction (router)
 │   ├── llm_tools_anthropic.py #   Anthropic LLM provider
-│   ├── llm_tools_openai.py    #   OpenAI LLM provider
 │   ├── llm_tools_qgenie.py    #   QGenie LLM provider
 │   ├── llm_tools_mock.py      #   Mock LLM provider
 │   └── excel_writer.py        #   Excel generation utilities
 │
 ├── tests/                     # Test suite
+│   ├── conftest.py            #   Shared fixtures and test configuration
 │   ├── test_analyzers.py
 │   ├── test_adapters.py
 │   ├── test_hitl.py
 │   ├── test_integration.py
+│   ├── test_full_pipeline.py
 │   └── fixtures/              #   Sample good/bad C files, patches
 │
 └── docs/
     ├── ORCA_Architecture_Design_Document.docx
-    └── ORCA_Pitch_Deck.pptx
+    ├── ORCA_Pitch_Deck.pptx
+    └── ORCA_Pitch_Deck.pdf
 ```
 
 ---
@@ -852,9 +856,9 @@ python -m unittest tests.test_integration -v
 
 ## Project Metrics
 
-- **69 Python modules** across 8 packages
-- **~16,000 lines of code**
-- **41 compliance rules** across 7 analyzers
+- **66 Python modules** across 11 packages
+- **~21,500 lines of code**
+- **43 compliance rules** across 7 analyzers
 - **7 external tool adapters**
 - **7 compliance agents** (including batch patch and chat)
 - **2 context modules** (HeaderContextBuilder, CodebaseConstraintGenerator)
