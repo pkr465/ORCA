@@ -1,0 +1,246 @@
+# ============================================================================
+# ORCA Rules: Yocto Project / OpenEmbedded Coding Style
+# ============================================================================
+# Comprehensive rules for Yocto and OpenEmbedded contribution compliance
+# Reference: https://wiki.yoctoproject.org/wiki/Contribution_Guidelines
+# ============================================================================
+
+project:
+  name: "Yocto / OpenEmbedded"
+  version: "5.x"
+  upstream_url: "https://git.yoctoproject.org"
+  description: "Yocto Project and OpenEmbedded contribution rules"
+
+# ── Coding Style Rules ──────────────────────────────────────────────────
+style:
+  # Indentation: spaces (not tabs like kernel)
+  indentation: "spaces"
+  tab_width: 4
+  
+  # Line length: very permissive for recipe files
+  line_length: 200
+  line_length_warning: 200
+  
+  # K&R brace style
+  brace_style: "kr"
+  
+  # Naming conventions
+  naming:
+    functions: "snake_case"
+    variables: "snake_case"
+    macros: "UPPER_SNAKE_CASE"
+    types: "snake_case"
+    enums: "UPPER_SNAKE_CASE"
+    enum_values: "UPPER_SNAKE_CASE"
+    struct_members: "snake_case"
+  
+  # Typedefs: allowed (more permissive than kernel)
+  typedef_policy: "allowed"
+  
+  # Comment style: both C and C++ style allowed
+  comment_style: "both"
+  
+  # Function body size limits
+  max_function_lines: 80
+  
+  # Goto: allowed (more permissive than kernel)
+  goto_policy: "allowed"
+  
+  # Parenthesis spacing rules
+  spaces_inside_parens: false
+  space_after_keywords: true
+  keywords_requiring_space:
+    - "if"
+    - "for"
+    - "while"
+    - "switch"
+
+# ── License Compliance Rules ────────────────────────────────────────────
+license:
+  # SPDX identifiers are required
+  required_spdx: true
+  default_license: "GPL-2.0-only"
+  
+  # Allowed licenses for Yocto (broader than kernel)
+  allowed_licenses:
+    - "GPL-2.0-only"
+    - "GPL-2.0-or-later"
+    - "MIT"
+    - "BSD-2-Clause"
+    - "BSD-3-Clause"
+    - "Apache-2.0"
+    - "LGPL-2.1-only"
+    - "LGPL-2.1-or-later"
+  
+  # Incompatible licenses
+  incompatible_licenses:
+    - "AGPL-3.0-only"
+  
+  # License header format
+  header_format: "spdx_with_comment"
+  
+  # Copyright notice pattern
+  copyright_pattern: "Copyright"
+  require_copyright: true
+
+# ── Code Structure Rules ────────────────────────────────────────────────
+structure:
+  # Include guards: both ifndef and pragma once accepted
+  include_guard_style: "both"
+  guard_naming: "filename_based"
+  
+  # Include file ordering
+  include_order:
+    - "own"
+    - "system"
+    - "project"
+  
+  # Maximum include depth
+  max_include_depth: 15
+  
+  # C++ can have extern in .c/.cc files
+  no_extern_in_c: false
+  
+  # Header declarations optional for internal APIs
+  require_header_for_exports: false
+  
+  # File naming conventions
+  file_naming: "snake_case"
+  
+  # Allowed file extensions (C, C++, header variants)
+  allowed_extensions:
+    source: [".c", ".cc", ".cpp"]
+    header: [".h", ".hpp"]
+
+# ── Patch Format Rules ──────────────────────────────────────────────────
+patch:
+  # Context lines in unified diff
+  context_lines: 3
+  
+  # Maximum patch size (more permissive for build system)
+  max_patch_size: 5000
+  
+  # Patch submission requirements
+  require_signed_off_by: true
+  require_cover_letter_for_series: false
+  
+  # Subject line format
+  subject_prefix: "PATCH"
+  subject_max_length: 78
+  body_max_line_length: 78
+  
+  # Formatting requirements
+  require_blank_after_subject: true
+  require_imperative_mood: true
+  
+  # Developer Certificate of Origin required
+  require_dco: true
+  
+  # Required trailer lines
+  required_trailers:
+    - "Signed-off-by"
+  
+  # No prohibited trailers
+  prohibited_trailers: []
+
+# ── Recipe-Specific Rules ───────────────────────────────────────────────
+recipes:
+  # BitBake recipe variable conventions
+  variable_conventions:
+    metadata: "UPPER_CASE"
+    local: "snake_case"
+    internal: "snake_case"
+  
+  # Required recipe variables
+  required_variables:
+    - "SUMMARY"
+    - "DESCRIPTION"
+    - "LICENSE"
+    - "LIC_FILES_CHKSUM"
+  
+  # Variable ordering in recipes
+  variable_order:
+    - "SUMMARY"
+    - "DESCRIPTION"
+    - "HOMEPAGE"
+    - "LICENSE"
+    - "LIC_FILES_CHKSUM"
+    - "AUTHOR"
+    - "SECTION"
+    - "SRC_URI"
+    - "S"
+    - "DEPENDS"
+    - "RDEPENDS"
+  
+  # Inherit policy
+  inherit_check: true
+  required_inherits: []
+
+# ── Layer Structure Rules ───────────────────────────────────────────────
+layer:
+  # Layer naming convention
+  naming: "meta-<vendor>-<purpose>"
+  
+  # Required layer files
+  required_files:
+    - "conf/layer.conf"
+    - "README.md"
+  
+  # Layer compatibility specification
+  require_compatibility: true
+  
+  # MAINTAINERS file requirement
+  require_maintainers: true
+
+# ── BitBake Syntax Rules ────────────────────────────────────────────────
+bitbake:
+  # Class naming convention
+  class_naming: "PascalCase"
+  
+  # Require descriptive task names
+  descriptive_tasks: true
+  
+  # Prevent shell meta-characters in recipes
+  shell_safety: true
+  
+  # Variable expansion safeguards
+  require_braces_for_vars: true
+
+# ── Severity Overrides ──────────────────────────────────────────────────
+severity_overrides:
+  # Style violations
+  style_indentation_tabs: "low"
+  style_line_length: "ignored"
+  style_brace_kr: "low"
+  style_naming_function: "low"
+  style_typedef: "ignored"
+  style_comment_cpp: "ignored"
+  
+  # License violations
+  license_spdx_missing: "high"
+  license_spdx_invalid: "medium"
+  license_copyright_missing: "medium"
+  license_incompatible: "critical"
+  
+  # Structure violations
+  structure_include_guard_missing: "medium"
+  structure_extern_in_c: "ignored"
+  
+  # Patch violations
+  patch_signed_off_by: "high"
+  patch_subject_length: "low"
+  patch_dco_missing: "critical"
+  
+  # Recipe violations
+  recipe_required_variable_missing: "high"
+  recipe_variable_order: "low"
+  recipe_invalid_inherit: "medium"
+  
+  # Layer violations
+  layer_missing_layer_conf: "critical"
+  layer_missing_readme: "high"
+  layer_missing_maintainers: "medium"
+  
+  # BitBake violations
+  bitbake_shell_safety: "high"
+  bitbake_variable_expansion: "medium"

@@ -1,0 +1,309 @@
+# ============================================================================
+# ORCA Custom Rules Template
+# ============================================================================
+# Copy this file and modify for your project's specific requirements.
+# All fields are optional - unset fields inherit from the default profile.
+# ============================================================================
+
+project:
+  name: "My Project"
+  version: "1.0"
+  upstream_url: ""
+  description: "Custom compliance rules"
+
+# ── Coding Style Rules ──────────────────────────────────────────────────
+# Customize coding standards for your project
+style:
+  # Indentation: "tabs" or "spaces"
+  indentation: "spaces"
+  tab_width: 4
+
+  # Maximum line length (0 = unlimited)
+  # Common values: 80 (strict), 100 (standard), 120 (permissive)
+  line_length: 120
+  line_length_warning: 100
+
+  # Brace placement: "kr" (K&R), "allman", "gnu", "any"
+  # K&R: } on same line as opening brace
+  # Allman: } on separate line with same indentation
+  # GNU: } at column 0 with 2-space indent
+  brace_style: "any"
+
+  # Naming convention enforcement
+  naming:
+    functions: "snake_case"      # snake_case, camelCase, PascalCase, any
+    variables: "snake_case"
+    macros: "UPPER_SNAKE_CASE"
+    types: "any"
+    enums: "UPPER_SNAKE_CASE"
+    enum_values: "UPPER_SNAKE_CASE"
+    struct_members: "any"
+
+  # Typedef: "discouraged", "allowed", "allowed_for_opaque", "any"
+  # discouraged: discourage typedef usage
+  # allowed_for_opaque: only for opaque pointers
+  # allowed: all typedefs permitted
+  typedef_policy: "any"
+
+  # Comment style: "c_only" (/* */), "cpp_only" (//), "both", "any"
+  comment_style: "both"
+
+  # Maximum function body length in lines (0 = unlimited)
+  max_function_lines: 0
+
+  # Goto policy: "forbidden", "centralized_error_handling", "allowed"
+  # forbidden: goto is not allowed
+  # centralized_error_handling: only for error cleanup paths
+  # allowed: goto permitted anywhere
+  goto_policy: "allowed"
+
+  # Parenthesis spacing
+  spaces_inside_parens: false
+  space_after_keywords: true
+  keywords_requiring_space:
+    - "if"
+    - "for"
+    - "while"
+    - "switch"
+    - "return"
+
+# ── License Compliance Rules ────────────────────────────────────────────
+# Enforce licensing and copyright requirements
+license:
+  # Require SPDX identifiers in file headers
+  required_spdx: false
+  
+  # Default license if not specified
+  default_license: ""
+  
+  # List of allowed licenses (empty = all allowed)
+  allowed_licenses: []
+  
+  # List of incompatible licenses
+  incompatible_licenses: []
+  
+  # License header format options:
+  # - spdx_only: "// SPDX-License-Identifier: ..."
+  # - spdx_with_comment: "/* SPDX-License-Identifier: ... */"
+  # - traditional: full license text
+  # - any: no enforcement
+  header_format: "any"
+  
+  # Copyright notice pattern (regex)
+  copyright_pattern: "Copyright"
+  
+  # Require copyright notice in files
+  require_copyright: false
+
+# ── Code Structure Rules ────────────────────────────────────────────────
+# Enforce code organization and structure
+structure:
+  # Include guard style: "ifndef", "pragma_once", "both", "any"
+  # ifndef: #ifndef FILENAME_H guard style
+  # pragma_once: #pragma once style
+  # both: either style acceptable
+  include_guard_style: "any"
+  
+  # Include guard naming convention:
+  # - path_based: FULL_PATH_TO_FILE_H
+  # - filename_based: FILENAME_H
+  # - any: no enforcement
+  guard_naming: "any"
+  
+  # Include file ordering (empty = no enforcement)
+  # Common pattern: [own, local, system, project]
+  include_order: []
+  
+  # Maximum include depth to prevent circular dependencies
+  # (0 = unlimited)
+  max_include_depth: 0
+  
+  # Enforce: no extern keyword in .c source files
+  no_extern_in_c: false
+  
+  # Require public functions to be declared in headers
+  require_header_for_exports: false
+  
+  # File naming convention: "snake_case", "camelCase", "PascalCase", "any"
+  file_naming: "any"
+  
+  # Allowed file extensions
+  allowed_extensions:
+    source: [".c", ".cc", ".cpp", ".cxx"]
+    header: [".h", ".hpp", ".hh", ".hxx"]
+
+# ── Patch Format Rules ──────────────────────────────────────────────────
+# Enforce patch submission standards
+patch:
+  # Context lines in unified diff format
+  context_lines: 3
+  
+  # Maximum patch size in lines (0 = unlimited)
+  max_patch_size: 0
+  
+  # Require Signed-off-by trailer
+  require_signed_off_by: false
+  
+  # Require cover letter for patch series (3+ patches)
+  require_cover_letter_for_series: false
+  
+  # Subject line prefix (e.g., "PATCH", "RFC", "FIXUP")
+  subject_prefix: "PATCH"
+  
+  # Maximum subject line length
+  subject_max_length: 72
+  
+  # Maximum body line length (0 = unlimited)
+  body_max_line_length: 0
+  
+  # Require blank line between subject and body
+  require_blank_after_subject: true
+  
+  # Require imperative mood in subject ("Fix X" not "Fixed X")
+  require_imperative_mood: false
+  
+  # Require Developer Certificate of Origin
+  require_dco: false
+  
+  # Required trailer lines (Signed-off-by, etc.)
+  required_trailers: []
+  
+  # Prohibited trailers
+  prohibited_trailers: []
+
+# ── Custom Rules ────────────────────────────────────────────────────────
+# Define project-specific rules not covered above
+custom_rules: {}
+  # Example custom rule:
+  # no_TODO_comments: true
+  # require_unit_tests: true
+  # max_cyclomatic_complexity: 10
+
+# ── Severity Overrides ──────────────────────────────────────────────────
+# Override default severity for specific rule violations
+# Values: "critical" (blocks review), "high" (must fix), "medium" (should fix),
+#         "low" (informational), "ignored" (suppress)
+severity_overrides:
+  # Example severity overrides:
+  # style_indentation_spaces: "medium"
+  # license_spdx_missing: "high"
+  # patch_signed_off_by: "critical"
+
+# ── Development Tools Configuration ─────────────────────────────────────
+dev_tools:
+  # Pre-commit hook configuration
+  pre_commit:
+    enabled: false
+    stages:
+      - "commit"
+      - "push"
+  
+  # Code formatter configuration
+  formatter:
+    tool: "none"  # none, clang-format, astyle, prettier
+    config_file: ""
+  
+  # Linter configuration
+  linter:
+    tool: "none"  # none, splint, cppcheck, clang-tidy
+    config_file: ""
+
+# ── Documentation ───────────────────────────────────────────────────────
+# Rules for documentation and comments
+documentation:
+  # Require function documentation
+  require_function_docs: false
+  
+  # Require parameter documentation
+  require_parameter_docs: false
+  
+  # Documentation format: "doxygen", "javadoc", "any"
+  format: "any"
+  
+  # Require file-level comments
+  require_file_header: false
+
+# ── Testing Requirements ────────────────────────────────────────────────
+testing:
+  # Require unit tests for new functionality
+  require_unit_tests: false
+  
+  # Minimum code coverage percentage
+  min_coverage: 0
+  
+  # Test naming convention
+  test_naming: "any"
+  
+  # Required test frameworks
+  frameworks: []
+
+# ── Performance Rules ───────────────────────────────────────────────────
+performance:
+  # Maximum cyclomatic complexity
+  max_complexity: 0
+  
+  # Check for memory leaks
+  check_memory_leaks: false
+  
+  # Detect unused variables
+  warn_unused_variables: false
+  
+  # Detect unused functions
+  warn_unused_functions: false
+
+# ── Security Rules ──────────────────────────────────────────────────────
+security:
+  # Disallow unsafe functions (strcpy, sprintf, etc.)
+  disallow_unsafe_functions: false
+  unsafe_functions:
+    - "strcpy"
+    - "strcat"
+    - "sprintf"
+    - "gets"
+  
+  # Require bounds checking
+  require_bounds_checking: false
+  
+  # Check for hardcoded credentials
+  check_hardcoded_secrets: false
+
+# ── File Templates ──────────────────────────────────────────────────────
+# Define templates for new files
+templates:
+  c_source: |
+    /* SPDX-License-Identifier: GPL-2.0-only */
+    /*
+     * Copyright (C) YEAR  AUTHOR
+     */
+    
+    #include "module.h"
+    
+  c_header: |
+    /* SPDX-License-Identifier: GPL-2.0-only */
+    /*
+     * Copyright (C) YEAR  AUTHOR
+     */
+    
+    #ifndef MODULE_H
+    #define MODULE_H
+    
+    #endif /* MODULE_H */
+
+# ── Integration Settings ────────────────────────────────────────────────
+# Configuration for CI/CD integration
+integration:
+  # GitHub Actions workflow
+  github_actions:
+    enabled: false
+    workflow_file: ".github/workflows/lint.yml"
+  
+  # GitLab CI configuration
+  gitlab_ci:
+    enabled: false
+    config_file: ".gitlab-ci.yml"
+  
+  # Pre-commit framework
+  pre_commit:
+    enabled: false
+    config_file: ".pre-commit-config.yaml"
+

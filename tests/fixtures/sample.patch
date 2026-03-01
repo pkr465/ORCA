@@ -1,0 +1,49 @@
+From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001
+From: Test User <test@example.com>
+Date: Fri, 28 Feb 2026 12:34:56 +0000
+Subject: [PATCH] Add new function to module with comprehensive documentation
+
+This commit introduces a new function for handling edge cases in data
+processing. The function includes proper error handling and follows
+all kernel coding standards.
+
+Signed-off-by: Test User <test@example.com>
+---
+ kernel/core.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/kernel/core.c b/kernel/core.c
+index 1234567..abcdefg 100644
+--- a/kernel/core.c
++++ b/kernel/core.c
+@@ -100,6 +100,31 @@ static int existing_function(void)
+ 	return 0;
+ }
+
++/**
++ * new_function - Process input data with validation
++ * @input: Input buffer pointer
++ * @size: Buffer size in bytes
++ *
++ * This function validates the input and processes it according to
++ * the module's requirements. It includes proper error handling and
++ * follows Linux kernel coding standards.
++ *
++ * Return: 0 on success, negative errno on failure
++ */
++static int new_function(const char *input, size_t size)
++{
++	if (!input || size == 0)
++		return -EINVAL;
++
++	if (size > MAX_SIZE)
++		return -ERANGE;
++
++	pr_debug("Processing %zu bytes\n", size);
++
++	return 0;
++}
++
+ module_init(module_start);
+ module_exit(module_end);
+

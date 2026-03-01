@@ -1,0 +1,82 @@
+# ============================================================================
+# ORCA Global Configuration
+# ============================================================================
+# All settings live here.  Only API keys belong in .env (LLM_API_KEY,
+# QGENIE_API_KEY).  Environment variable interpolation: ${VAR:-default}
+# ============================================================================
+
+paths:
+  codebase: "."
+  output: "./out"
+  rules: "./rules/linux_kernel.yaml"
+  exclude_patterns:
+    - "build/"
+    - ".git/"
+    - "third_party/"
+    - "vendor/"
+    - "*.generated.*"
+
+llm:
+  # Provider: anthropic | openai | qgenie | mock
+  provider: "mock"
+  # Model identifier (provider::model format for explicit routing)
+  model: "anthropic::claude-sonnet-4-20250514"
+  # API key — resolved from LLM_API_KEY env var at runtime
+  api_key: "${LLM_API_KEY:-}"
+  # QGenie-specific key — resolved from QGENIE_API_KEY env var
+  qgenie_api_key: "${QGENIE_API_KEY:-}"
+  # QGenie base URL (only used when provider is qgenie)
+  qgenie_base_url: "https://api.qgenie.io/v1"
+  timeout: 60
+  max_retries: 3
+  max_tokens: 8192
+  temperature: 0.1
+  mock_mode: true
+
+compliance:
+  enabled_domains:
+    - style
+    - license
+    - structure
+    - patch
+  severity_threshold: "low"
+  auto_fix_threshold: "high"
+  max_files: 10000
+  batch_size: 50
+
+adapters:
+  checkpatch_path: ""
+  scancode_path: ""
+  gitlint_config: ".gitlint"
+
+hitl:
+  enabled: false
+  # SQLite store path (used when db_url is empty)
+  store_path: "./orca_feedback.db"
+  # PostgreSQL connection URL (takes priority over individual params)
+  db_url: ""
+  db_host: "localhost"
+  db_port: 5432
+  db_name: "orca_feedback"
+  db_user: "orca"
+  db_password: ""
+  db_schema: "orca"
+  feedback_excel: "./out/compliance_review.xlsx"
+  constraints_dir: "./constraints/"
+  rag_top_k: 5
+  similarity_threshold: 0.3
+
+excel:
+  header_fill: "1B3A5C"
+  header_font_color: "FFFFFF"
+  alternating_fill: "EBF2FA"
+  accent_color: "2E75B6"
+
+reporting:
+  formats:
+    - excel
+    - json
+  html_template: "default"
+  include_code_snippets: true
+  max_snippet_lines: 10
+  verbose: false

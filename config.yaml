@@ -1,0 +1,255 @@
+# ============================================================================
+# ORCA Default Configuration
+# ============================================================================
+# This file contains all default option values for the ORCA framework.
+# CLI arguments override these values when provided.
+#
+# API keys are loaded from the environment (.env file):
+#   LLM_API_KEY      — generic key for anthropic / openai providers
+#   QGENIE_API_KEY   — key for the QGenie provider
+#
+# Environment variable syntax: ${VAR:-default}
+# ============================================================================
+
+# ── Paths ──────────────────────────────────────────────────────────────────
+paths:
+  # Root directory of the codebase to audit
+  codebase: "."
+
+  # Output directory for reports and artifacts
+  output: "./out"
+
+  # Path to rules YAML file (or use rules_preset below)
+  rules: ""
+
+  # Built-in rules preset: kernel | uboot | yocto | custom
+  # Used when paths.rules is empty
+  rules_preset: "kernel"
+
+  # Directories and patterns to exclude from scanning
+  exclude_patterns:
+    - "build/"
+    - ".git/"
+    - "third_party/"
+    - "vendor/"
+    - "node_modules/"
+    - "*.generated.*"
+    - "*.min.*"
+
+# ── Audit Settings ─────────────────────────────────────────────────────────
+audit:
+  # Run static analysis (regex/heuristic-based)
+  static: true
+
+  # Run LLM-powered semantic analysis
+  llm: false
+
+  # Compliance domains to audit: style, license, structure, patch
+  domains:
+    - style
+    - license
+    - structure
+    - patch
+
+  # Enable external tool adapters (checkpatch.pl, gitlint, etc.)
+  enable_adapters: false
+
+  # Minimum severity to report: critical | high | medium | low | info
+  severity_threshold: "low"
+
+  # Maximum files to scan per audit run
+  max_files: 10000
+
+  # Files processed per batch
+  batch_size: 50
+
+# ── LLM Configuration ─────────────────────────────────────────────────────
+llm:
+  # LLM provider: anthropic | openai | qgenie | mock
+  provider: "mock"
+
+  # Model identifier (provider::model for explicit routing)
+  model: "anthropic::claude-sonnet-4-20250514"
+
+  # API key — set via LLM_API_KEY env var in .env
+  api_key: "${LLM_API_KEY:-}"
+
+  # QGenie API key — set via QGENIE_API_KEY env var in .env
+  qgenie_api_key: "${QGENIE_API_KEY:-}"
+
+  # QGenie base URL (only when provider is qgenie)
+  qgenie_base_url: "https://api.qgenie.io/v1"
+
+  # Request timeout in seconds
+  timeout: 60
+
+  # Maximum retry attempts for failed API calls
+  max_retries: 3
+
+  # Maximum tokens per LLM response
+  max_tokens: 8192
+
+  # Temperature for LLM responses (lower = more deterministic)
+  temperature: 0.1
+
+  # Enable mock mode (no real API calls)
+  mock_mode: true
+
+# ── Context Layer ──────────────────────────────────────────────────────────
+# The context layer pre-analyzes C/C++ code structure before LLM auditing
+# to reduce false positives and enrich prompts with codebase knowledge.
+context:
+  # Enable context-aware analysis
+  enabled: false
+
+  # Header resolution — resolve #include chains, parse enums/structs/macros/typedefs
+  header_resolution: true
+
+  # Auto-generate constraint .md from codebase symbols before audit
+  auto_generate_constraints: false
+
+  # Directory containing constraint markdown files
+  constraints_dir: "./constraints/"
+
+  # Additional include paths for header resolution (comma-separated or list)
+  include_paths: []
+
+# ── External Tool Adapters ─────────────────────────────────────────────────
+adapters:
+  # Path to checkpatch.pl (Linux kernel style checker)
+  checkpatch_path: ""
+
+  # Path to ScanCode toolkit binary
+  scancode_path: ""
+
+  # Path to gitlint configuration file
+  gitlint_config: ".gitlint"
+
+# ── Fix / Remediation Settings ─────────────────────────────────────────────
+fix:
+  # Domain to fix: all | style | license | structure | patch
+  domain: "all"
+
+  # Dry-run mode (show fixes without applying)
+  dry_run: true
+
+  # Create file backups before applying fixes
+  backup: true
+
+  # Re-run audit after applying fixes
+  audit_after: false
+
+  # Auto-fix confidence threshold: only auto-fix findings above this level
+  auto_fix_threshold: "high"
+
+# ── Solution / Recommendation Settings ─────────────────────────────────────
+solution:
+  # Output format: jsonl | markdown
+  format: "jsonl"
+
+  # Maximum fix suggestions per finding
+  max_suggestions: 10
+
+  # Minimum confidence to include a suggestion
+  min_confidence: 0.5
+
+# ── Patch Audit Settings ───────────────────────────────────────────────────
+patch:
+  # Only check patch formatting (skip code analysis)
+  format_only: false
+
+# ── Human-in-the-Loop (HITL) ──────────────────────────────────────────────
+hitl:
+  # Enable HITL feedback loop
+  enabled: false
+
+  # SQLite store path (used when db_url is empty)
+  store_path: "./orca_feedback.db"
+
+  # PostgreSQL connection URL (takes priority over individual keys)
+  db_url: ""
+
+  # Individual PostgreSQL connection parameters
+  db_host: "localhost"
+  db_port: 5432
+  db_name: "orca_feedback"
+  db_user: "orca"
+  db_password: ""
+
+  # PostgreSQL schema (created by db/setup_db.py / db/bootstrap_db.py)
+  db_schema: "orca"
+
+  # Path to feedback Excel spreadsheet
+  feedback_excel: "./out/compliance_review.xlsx"
+
+  # Directory containing constraint markdown files
+  constraints_dir: "./constraints/"
+
+  # Number of past decisions to retrieve for RAG context
+  rag_top_k: 5
+
+  # Similarity threshold for RAG retrieval (0.0 - 1.0)
+  similarity_threshold: 0.3
+
+  # Auto-mode: automatically apply fixes with high confidence
+  auto_mode: false
+
+  # Project name for feedback grouping
+  project: "default"
+
+# ── Reporting ──────────────────────────────────────────────────────────────
+reporting:
+  # Output formats: excel | json | html | all
+  formats:
+    - excel
+    - json
+
+  # HTML dashboard template
+  html_template: "default"
+
+  # Include source code snippets in reports
+  include_code_snippets: true
+
+  # Maximum lines per code snippet
+  max_snippet_lines: 10
+
+  # Verbose report output
+  verbose: false
+
+# ── Excel Formatting ───────────────────────────────────────────────────────
+excel:
+  # Header row fill color (hex)
+  header_fill: "1B3A5C"
+
+  # Header font color (hex)
+  header_font_color: "FFFFFF"
+
+  # Alternating row fill color (hex)
+  alternating_fill: "EBF2FA"
+
+  # Accent/highlight color (hex)
+  accent_color: "2E75B6"
+
+# ── Pipeline Settings ──────────────────────────────────────────────────────
+# The 'pipeline' command runs the full end-to-end workflow:
+#   audit → solution → fix → report
+pipeline:
+  # Enable solution generation after audit
+  generate_solutions: true
+
+  # Enable auto-fix after solution generation
+  auto_fix: false
+
+  # Enable HITL review before fix application
+  hitl_review: false
+
+  # Generate all report formats at the end
+  full_report: true
+
+# ── Logging ────────────────────────────────────────────────────────────────
+logging:
+  # Verbosity level: 0=WARNING, 1=INFO, 2=DEBUG
+  verbosity: 0
+
+  # Suppress all output except errors
+  quiet: false

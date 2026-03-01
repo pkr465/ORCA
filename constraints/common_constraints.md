@@ -1,0 +1,276 @@
+# ORCA Common Constraints — Open-Source C/C++ Compliance
+
+> These constraints are loaded by all ORCA agents (audit, solution, fixer) and apply
+> globally across every compliance domain. Domain-specific constraint files
+> (`style_constraints.md`, `license_constraints.md`, etc.) can override or extend
+> individual rules.
+
+---
+
+## 1. Style Compliance Constraints
+
+*Rules governing coding style, formatting, and naming conventions.*
+
+### A. Indentation & Whitespace
+*   **Indentation**: Use **tabs** for indentation in C kernel-style projects; use **spaces (4)** in
+    userspace C++ projects. Follow the project's `.editorconfig` or top-level style guide if present.
+*   **Rule**: **FLAG** mixed tabs/spaces within a single file. A file must be consistent.
+*   **Trailing Whitespace**: **FLAG** lines with trailing whitespace characters.
+*   **Rule**: **IGNORE** blank lines that contain only whitespace — these are cosmetic, not functional.
+
+### B. Line Length
+*   **Limit**: Lines should not exceed **100 characters** (kernel default: 80, modern C++: 120).
+    Apply the project-configured limit if available; otherwise default to 100.
+*   **Exception**: **IGNORE** line-length violations in:
+    1. String literals (URLs, log messages, format strings).
+    2. Macro definitions that cannot be reasonably split.
+    3. `#include` paths.
+
+### C. Brace Style
+*   **Functions**: Opening brace on a **new line** (K&R / kernel style).
+*   **Control Structures** (`if`, `for`, `while`, `switch`): Opening brace on the **same line**.
+*   **Rule**: **FLAG** inconsistent brace placement within a file. Do not flag a project that
+    consistently uses a different style (e.g., Allman) — consistency is the requirement.
+*   **Single-Statement Bodies**: **FLAG** `if`/`for`/`while` bodies without braces only if the
+    body spans multiple logical lines or contains macros that expand to multiple statements.
+
+### D. Naming Conventions
+*   **Functions & Variables**: `snake_case` for C; `snake_case` or `camelCase` for C++ (match project).
+*   **Macros & Constants**: `UPPER_SNAKE_CASE`.
+*   **Types (structs, enums, typedefs)**: `snake_case_t` with `_t` suffix (C) or `PascalCase` (C++).
+*   **Rule**: **FLAG** naming violations only when they break the dominant convention in the same file.
+    Do not flag third-party or auto-generated code.
+
+### E. Comment Style
+*   **Multi-line**: Use `/* ... */` block comments. Each line should start with ` * `.
+*   **Single-line**: Use `//` for inline/end-of-line comments.
+*   **Rule**: **FLAG** `//` used for multi-line block comments (3+ consecutive `//` lines).
+*   **Function Documentation**: Public API functions **should** have a doc-comment describing
+    parameters and return values. **FLAG** only if the project already uses doc-comments
+    (Doxygen, kernel-doc) and the function lacks one.
+
+### F. General Formatting
+*   **Pointer Declarations**: Asterisk binds to the variable: `char *ptr`, not `char* ptr`.
+*   **Spaces Around Operators**: Required around binary operators (`=`, `+`, `==`, `&&`).
+    Not required for unary operators (`!`, `~`, `++`, `--`, `*ptr`, `&var`).
+*   **Blank Lines**: One blank line between function definitions. No more than two consecutive
+    blank lines anywhere. **FLAG** three or more consecutive blank lines.
+
+---
+
+## 2. License Compliance Constraints
+
+*Rules governing copyright headers, license identifiers, and legal obligations.*
+
+### A. SPDX License Identifiers
+*   **Rule**: Every source file (`.c`, `.cpp`, `.h`, `.hpp`) **must** contain an SPDX license
+    identifier on line 1 or line 2, in the format:
+    ```
+    // SPDX-License-Identifier: <expression>
+    ```
+    or inside a C comment:
+    ```
+    /* SPDX-License-Identifier: <expression> */
+    ```
+*   **Valid Expressions**: Must use identifiers from the [SPDX License List](https://spdx.org/licenses/).
+    Common examples: `GPL-2.0-only`, `GPL-2.0-or-later`, `MIT`, `Apache-2.0`, `BSD-2-Clause`,
+    `BSD-3-Clause`, `LGPL-2.1-only`.
+*   **Rule**: **FLAG** files missing an SPDX identifier entirely.
+*   **Rule**: **FLAG** non-standard or misspelled identifiers (e.g., `GPL2`, `GPLv2`, `MIT License`).
+*   **Dual Licensing**: Use `OR` for dual-license: `SPDX-License-Identifier: MIT OR Apache-2.0`.
+    Use `AND` only when both licenses must apply simultaneously.
+
+### B. Copyright Notices
+*   **Rule**: Each file **should** contain a copyright notice within the first 20 lines:
+    ```
+    // Copyright (C) <year> <holder>
+    ```
+    or
+    ```
+    /* Copyright (C) <year> <holder> */
+    ```
+*   **Year Format**: Single year (`2025`) or range (`2020-2025`). **FLAG** non-numeric or
+    malformed year entries.
+*   **Rule**: **FLAG** files with an SPDX identifier but no copyright notice (warning, not error).
+*   **Rule**: **IGNORE** copyright notices in auto-generated files (files containing
+    `AUTO-GENERATED`, `DO NOT EDIT`, or `Generated by` in the first 10 lines).
+
+### C. License Compatibility
+*   **Rule**: **FLAG** files that import or `#include` headers from projects with incompatible
+    licenses when the inclusion is identifiable (e.g., a GPL-only header included in an
+    Apache-2.0 project).
+*   **Rule**: **IGNORE** system headers (`<stdio.h>`, `<linux/...>`) — these are covered by
+    system library exceptions.
+*   **Rule**: When license compatibility cannot be determined from the source alone, report as
+    **POSSIBLE** (not CERTAIN) and recommend manual review.
+
+### D. License File Presence
+*   **Rule**: The project root **should** contain a `LICENSE`, `COPYING`, or `LICENSE.md` file.
+    **FLAG** at the project level (not per-file) if absent.
+*   **Rule**: **IGNORE** this check for individual subdirectories unless they represent
+    independently licensed components.
+
+---
+
+## 3. Structure Compliance Constraints
+
+*Rules governing file organization, include guards, header/source pairing, and modularity.*
+
+### A. Include Guards / `#pragma once`
+*   **Rule**: Every header file (`.h`, `.hpp`) **must** have an include guard or `#pragma once`.
+*   **Traditional Guard Format**:
+    ```c
+    #ifndef PROJECT_MODULE_FILE_H
+    #define PROJECT_MODULE_FILE_H
+    ...
+    #endif /* PROJECT_MODULE_FILE_H */
+    ```
+*   **Naming Convention**: Guard macro should reflect the file path:
+    `project/module/file.h` → `PROJECT_MODULE_FILE_H`.
+*   **Rule**: **FLAG** header files without any include protection.
+*   **Rule**: **FLAG** mismatched guard names (e.g., `#ifndef FOO_H` / `#define BAR_H`).
+*   **Rule**: **IGNORE** `#pragma once` in projects that consistently use it — do not
+    require conversion to traditional guards.
+
+### B. Header / Source Pairing
+*   **Rule**: For every `module.c` or `module.cpp`, there **should** be a corresponding
+    `module.h` or `module.hpp` (or a matching include in a directory header).
+*   **Exceptions**: **IGNORE** this rule for:
+    1. `main.c` / `main.cpp` (entry point — no header expected).
+    2. Test files (`*_test.c`, `*_test.cpp`, `test_*.c`).
+    3. Platform-specific files conditionally compiled (`#ifdef __linux__` wrappers).
+
+### C. Include Ordering
+*   **Recommended Order**:
+    1. Corresponding header (e.g., `foo.c` includes `foo.h` first).
+    2. System/standard library headers (`<stdio.h>`, `<string>`).
+    3. Third-party library headers.
+    4. Project-local headers (`"project/module.h"`).
+*   **Rule**: **FLAG** if the corresponding header is not the first `#include` in a `.c`/`.cpp` file.
+*   **Rule**: **FLAG** mixed `<>` and `""` for project-local headers within the same file.
+    Project headers should use `""`, system headers should use `<>`.
+
+### D. Circular & Redundant Includes
+*   **Rule**: **FLAG** circular include dependencies when detectable from the include graph.
+*   **Rule**: **FLAG** a file including the same header more than once (redundant `#include`),
+    unless the header is designed for multiple inclusion (X-macros pattern).
+
+### E. File Organization
+*   **Rule**: Source files **should** follow a consistent internal order:
+    1. License/copyright header
+    2. Include directives
+    3. Macros and constants
+    4. Type definitions (structs, enums, typedefs)
+    5. Static/local function declarations (forward declarations)
+    6. Public function implementations
+    7. Static/local function implementations
+*   **Rule**: **FLAG** function implementations appearing before all `#include` directives.
+*   **Rule**: **IGNORE** minor ordering variations — only flag gross violations
+    (e.g., `#include` directives scattered throughout the file body).
+
+### F. Modularity
+*   **Rule**: **FLAG** source files exceeding **2000 lines** as candidates for splitting.
+    This is a **warning**, not an error.
+*   **Rule**: **FLAG** header files that define (not just declare) non-inline functions.
+    Function definitions belong in source files.
+*   **Rule**: **IGNORE** header-only libraries and template-heavy C++ headers that must
+    contain definitions.
+
+---
+
+## 4. Patch Compliance Constraints
+
+*Rules governing commit messages, sign-off requirements, and patch formatting.*
+
+### A. Commit Message Format
+*   **Subject Line**:
+    - Maximum **72 characters** (hard limit: 78).
+    - Format: `subsystem: short description` (lowercase subsystem, imperative mood).
+    - **FLAG** subject lines missing a subsystem prefix.
+    - **FLAG** subject lines starting with uppercase after the prefix colon.
+    - **FLAG** subject lines ending with a period.
+*   **Body**:
+    - Separated from subject by one blank line.
+    - Wrapped at **72 characters** per line.
+    - Should explain **why** the change was made, not just **what** changed.
+    - **FLAG** commits with code changes but no body (subject-only) when the diff exceeds
+      50 lines. Small changes are exempt.
+
+### B. Sign-off & DCO (Developer Certificate of Origin)
+*   **Rule**: Every commit **must** contain a `Signed-off-by:` trailer matching the commit
+    author's name and email:
+    ```
+    Signed-off-by: Full Name <email@example.com>
+    ```
+*   **Rule**: **FLAG** commits missing the `Signed-off-by` line entirely.
+*   **Rule**: **FLAG** `Signed-off-by` where the name or email does not match the commit
+    author (Author: header).
+*   **Rule**: **IGNORE** additional trailers (`Reviewed-by:`, `Tested-by:`, `Acked-by:`,
+    `Co-developed-by:`) — these are optional and valid.
+
+### C. Patch Scope & Atomicity
+*   **Rule**: Each patch (commit) should address **one logical change**.
+*   **Rule**: **FLAG** commits that mix:
+    1. Functional changes with unrelated whitespace/style cleanups.
+    2. Multiple independent bug fixes in a single commit.
+    3. Feature additions combined with refactoring of unrelated code.
+*   **Rule**: **IGNORE** commits that combine a fix with its corresponding test addition —
+    these are logically atomic.
+
+### D. Patch Series Ordering
+*   **Rule**: In a patch series, preparatory/cleanup patches **should** precede the main
+    functional change.
+*   **Rule**: **FLAG** patch series where a later patch fixes a bug introduced by an
+    earlier patch in the same series (indicates incorrect ordering or incomplete work).
+*   **Rule**: Each patch in a series **must** compile independently. **FLAG** patches that
+    introduce compilation errors resolved only by a later patch.
+
+### E. Fixes & References
+*   **Rule**: Bug-fix commits **should** include a `Fixes:` trailer referencing the commit
+    that introduced the bug:
+    ```
+    Fixes: abc1234def56 ("original commit subject")
+    ```
+*   **Rule**: **FLAG** `Fixes:` trailers with invalid commit hash format (should be 12+ hex chars).
+*   **Rule**: **IGNORE** missing `Fixes:` trailers when the bug origin cannot be determined
+    from the current code alone — report as **INFO**, not a violation.
+
+---
+
+## 5. Common Rules (All Domains)
+
+*Cross-cutting constraints that apply regardless of compliance domain.*
+
+### A. Confidence Levels
+*   When flagging any issue, assign one of these confidence levels:
+    - **CERTAIN**: The violation is unambiguous and provable from the visible code.
+    - **POSSIBLE**: The code appears to violate the rule, but validation may exist elsewhere.
+    - **INFO**: Informational note — not a violation, but worth the developer's attention.
+*   **Rule**: Default to **POSSIBLE** when context is limited. Only use **CERTAIN** when
+    the full relevant context is visible and unambiguous.
+
+### B. False Positive Avoidance
+*   **Rule**: **DO NOT** flag auto-generated code (files with generation markers in the header).
+*   **Rule**: **DO NOT** flag vendored/third-party code in directories named `vendor/`,
+    `third_party/`, `external/`, or `3rdparty/`.
+*   **Rule**: **DO NOT** flag code inside `#ifdef __TEST__` or test-framework blocks unless
+    the test files are explicitly included in the audit scope.
+
+### C. Fix Generation Rules
+*   **Minimal Diff**: Generated fixes must change the **minimum** number of lines needed to
+    resolve the issue. Do not refactor surrounding code.
+*   **Preserve Intent**: Never change the functional behavior of code when fixing a style,
+    license, or structure violation.
+*   **Compilation Safety**: Every generated fix must compile. Do not introduce new warnings.
+    Follow the E-rules from the project's constraint overrides if present.
+*   **No New Dependencies**: Fixes must not add `#include` directives for headers not already
+    used in the file or its immediate module.
+*   **Comment Preservation**: Do not remove or modify existing comments unless the fix
+    directly relates to the comment content (e.g., updating a copyright year).
+
+### D. Severity Classification
+*   **ERROR**: Must be fixed before merge. License violations, missing include guards,
+    compilation-breaking patches.
+*   **WARNING**: Should be fixed but non-blocking. Style inconsistencies, missing doc-comments,
+    long files.
+*   **INFO**: Informational. Suggestions for improvement, potential compatibility notes.

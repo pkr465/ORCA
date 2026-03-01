@@ -1,0 +1,187 @@
+# ============================================================================
+# ORCA Rules: Linux Kernel Coding Style
+# ============================================================================
+# Comprehensive rules for Linux kernel contribution compliance
+# Reference: https://kernel.org/doc/html/latest/process/coding-style.html
+# ============================================================================
+
+project:
+  name: "Linux Kernel"
+  version: "6.x"
+  upstream_url: "https://kernel.org"
+  description: "Linux kernel coding style and contribution rules"
+
+# ── Coding Style Rules ──────────────────────────────────────────────────
+style:
+  # Indentation: Must use tabs, never spaces
+  indentation: "tabs"
+  tab_width: 8
+  
+  # Line length enforcement
+  line_length: 80
+  line_length_warning: 100
+  
+  # K&R brace style is mandatory
+  brace_style: "kr"
+  
+  # Naming conventions enforcement
+  naming:
+    functions: "snake_case"
+    variables: "snake_case"
+    macros: "UPPER_SNAKE_CASE"
+    types: "snake_case"
+    enums: "UPPER_SNAKE_CASE"
+    enum_values: "UPPER_SNAKE_CASE"
+    struct_members: "snake_case"
+  
+  # Typedefs are discouraged
+  typedef_policy: "discouraged"
+  
+  # Only C-style comments allowed
+  comment_style: "c_only"
+  
+  # Function body size limits
+  max_function_lines: 50
+  
+  # Goto usage: centralized error handling only
+  goto_policy: "centralized_error_handling"
+  
+  # Parenthesis spacing rules
+  spaces_inside_parens: false
+  space_after_keywords: true
+  keywords_requiring_space:
+    - "if"
+    - "switch"
+    - "case"
+    - "for"
+    - "do"
+    - "while"
+    - "return"
+
+# ── License Compliance Rules ────────────────────────────────────────────
+license:
+  # SPDX identifiers are required
+  required_spdx: true
+  default_license: "GPL-2.0-only"
+  
+  # Allowed licenses for kernel contributions
+  allowed_licenses:
+    - "GPL-2.0-only"
+    - "GPL-2.0-or-later"
+    - "BSD-2-Clause"
+    - "BSD-3-Clause"
+    - "MIT"
+    - "ISC"
+  
+  # Incompatible licenses (GPL-3 and AGPL)
+  incompatible_licenses:
+    - "GPL-3.0-only"
+    - "GPL-3.0-or-later"
+    - "AGPL-3.0-only"
+    - "AGPL-3.0-or-later"
+  
+  # License header format
+  header_format: "spdx_only"
+  
+  # Copyright notice pattern matching
+  copyright_pattern: "Copyright \\(C\\) \\d{4}"
+  require_copyright: true
+
+# ── Code Structure Rules ────────────────────────────────────────────────
+structure:
+  # Include guards: #ifndef style
+  include_guard_style: "ifndef"
+  guard_naming: "path_based"
+  
+  # Include file ordering
+  include_order:
+    - "own"
+    - "system"
+    - "project"
+  
+  # Maximum include depth to prevent circular dependencies
+  max_include_depth: 10
+  
+  # Kernel code should not have extern in .c files
+  no_extern_in_c: true
+  
+  # Public APIs must have declarations in headers
+  require_header_for_exports: true
+  
+  # File naming conventions
+  file_naming: "snake_case"
+  
+  # Allowed file extensions
+  allowed_extensions:
+    source: [".c"]
+    header: [".h"]
+
+# ── Patch Format Rules ──────────────────────────────────────────────────
+patch:
+  # Context lines in unified diff
+  context_lines: 3
+  
+  # Maximum patch size (lines)
+  max_patch_size: 1000
+  
+  # Patch submission requirements
+  require_signed_off_by: true
+  require_cover_letter_for_series: true
+  
+  # Subject line format
+  subject_prefix: "PATCH"
+  subject_max_length: 72
+  body_max_line_length: 75
+  
+  # Formatting requirements
+  require_blank_after_subject: true
+  require_imperative_mood: true
+  
+  # Developer Certificate of Origin required
+  require_dco: true
+  
+  # Required trailer lines
+  required_trailers:
+    - "Signed-off-by"
+  
+  # No prohibited trailers
+  prohibited_trailers: []
+
+# ── Severity Overrides ──────────────────────────────────────────────────
+# Customize severity for specific rule violations
+# Values: critical (fails review), high (must fix), medium (should fix), 
+#         low (informational), ignored
+severity_overrides:
+  # Style violations
+  style_indentation_spaces: "medium"
+  style_line_length: "low"
+  style_brace_kr: "medium"
+  style_naming_function: "medium"
+  style_typedef: "medium"
+  style_comment_cpp: "high"
+  
+  # License violations
+  license_spdx_missing: "high"
+  license_spdx_invalid: "critical"
+  license_copyright_missing: "high"
+  license_incompatible: "critical"
+  
+  # Structure violations
+  structure_include_guard_missing: "high"
+  structure_extern_in_c: "medium"
+  structure_include_depth: "medium"
+  
+  # Patch violations
+  patch_signed_off_by: "high"
+  patch_subject_length: "medium"
+  patch_dco_missing: "critical"
+  patch_body_line_length: "low"
+  
+  # Macro and function violations
+  macro_no_do_while: "high"
+  function_too_long: "medium"
+  goto_usage: "medium"
+  
+  # Whitespace violations
+  whitespace_trailing: "low"
+  whitespace_mixed_tabs_spaces: "high"
