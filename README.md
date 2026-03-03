@@ -6,7 +6,7 @@ ORCA is an LLM-powered, multi-agent compliance auditing framework for **C/C++ co
 
 ## Quick Start
 
-The fastest way to get ORCA running is the installer script. It detects your OS, installs Python 3.9+ if needed, creates a virtual environment, installs all dependencies, bootstraps PostgreSQL, sets up `.env`, and validates the installation:
+The fastest way to get ORCA running is the installer script. It detects your OS, installs Python 3.9+ if needed, creates a virtual environment, installs all pip dependencies, sets up `.env`, installs the `orca` CLI, and validates the installation:
 
 ```bash
 chmod +x install.sh
@@ -19,43 +19,55 @@ Once installed, activate the virtual environment and start using ORCA:
 source .venv/bin/activate
 
 # Run a basic audit on your source code
-python main.py audit --codebase-path ./src
+orca audit --codebase-path ./src
 
 # Run context-aware analysis (auto-generate constraints + audit)
-python main.py audit --codebase-path ./src --enable-context --audit-llm
+orca audit --codebase-path ./src --enable-context --audit-llm
 
 # Auto-generate codebase constraints from enums/structs/macros
-python main.py context-gen --codebase-path ./src
+orca context-gen --codebase-path ./src
 
 # Run the HITL fixer workflow
-python main.py fixer-workflow --excel-file out/detailed_code_review.xlsx
+orca fixer-workflow --excel-file out/detailed_code_review.xlsx
 
 # Run the full pipeline (audit → solutions → fix → report)
-python main.py pipeline --codebase-path ./src
+orca pipeline --codebase-path ./src
 
 # Launch the interactive web UI
 ./launch.sh
 
 # View CLI help
-python main.py --help
+orca --help
 ```
 
 ---
 
 ## Installation
 
-**Requirements:** Python 3.9+, PostgreSQL 12+
+**Requirements:** Python 3.9+, PostgreSQL 12+ (optional — for HITL feedback)
 
 ### Option A: Automated Install (Recommended)
 
-`install.sh` handles the full setup — OS detection, Python installation, virtual environment, pip dependencies, PostgreSQL bootstrap, `.env` configuration, CLI tool install, and validation:
+`install.sh` handles the full setup — OS detection, Python installation, virtual environment, pip dependencies, `.env` configuration, CLI tool install, and validation:
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-The installer supports macOS (Homebrew), Debian/Ubuntu (apt), RHEL/Fedora (dnf/yum), Arch Linux (pacman), and WSL.
+The installer supports macOS (Homebrew), Debian/Ubuntu (apt), RHEL/Fedora (dnf/yum), Arch Linux (pacman), and WSL. Use environment variables to customize behavior:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORCA_PYTHON` | auto-detect | Override Python binary (e.g., `python3.11`) |
+| `ORCA_VENV_DIR` | `.venv` | Override virtual environment path |
+| `ORCA_SKIP_TOOLS` | `0` | Set to `1` to skip system tool installation |
+| `ORCA_SKIP_DB` | `0` | Set to `1` to skip PostgreSQL setup instructions |
+
+```bash
+# Example: skip system tools and use a custom venv path
+ORCA_SKIP_TOOLS=1 ORCA_VENV_DIR=~/envs/orca ./install.sh
+```
 
 ### Option B: Manual Install
 
@@ -78,14 +90,21 @@ pip install pyyaml>=6.0 openpyxl>=3.1.0 psycopg2-binary>=2.9.0
 # Optional: LLM support (for semantic analysis)
 pip install anthropic>=0.15.0 openai>=1.0.0
 
-# Optional: Install as a CLI tool
+# Install as a CLI tool
 pip install -e .
 # Now you can use `orca` instead of `python main.py`
 ```
 
-**2. Bootstrap PostgreSQL**
+**2. Environment Variables**
 
-The bootstrap script handles everything — installs PostgreSQL via your system package manager (Homebrew on macOS, apt on Debian/Ubuntu, dnf on RHEL/Fedora), starts the service, creates the user, database, schema, tables, and indexes:
+```bash
+cp env.example .env
+# Edit .env with your API keys (LLM_API_KEY, QGENIE_API_KEY)
+```
+
+**3. Bootstrap PostgreSQL (Optional)**
+
+PostgreSQL is only needed for HITL feedback persistence and RAG-powered audits. Core static analysis works without it.
 
 ```bash
 # One command does it all:
@@ -102,13 +121,6 @@ If you prefer manual control, you can use `db/setup_db.py` instead (assumes Post
 
 ```bash
 python db/setup_db.py --host localhost --user orca --database orca_feedback
-```
-
-**3. Environment Variables**
-
-```bash
-cp env.example .env
-# Edit .env with your API keys (LLM_API_KEY, QGENIE_API_KEY)
 ```
 
 ---
@@ -210,12 +222,20 @@ Any string value in `config.yaml` supports `${VAR:-default}` interpolation. All 
 ORCA includes a full-featured interactive web dashboard built with Streamlit.
 
 ```bash
-# Launch the UI (handles venv activation and dependency checks)
+# Launch the UI (activates venv, loads .env, opens browser)
 ./launch.sh
+
+# Dashboard only (skip opening index.html)
+./launch.sh --no-site
+
+# Custom port
+./launch.sh --port 8502
 
 # Or launch directly with Streamlit
 streamlit run ui/app.py
 ```
+
+Set `ORCA_NO_BROWSER=1` to suppress auto-opening the browser (useful for headless/CI environments). Set `STREAMLIT_PORT` to override the default port (8501).
 
 The UI provides:
 
@@ -730,8 +750,8 @@ Create a new YAML file in `rules/` following the structure of `linux_kernel.yaml
 ORCA/
 ├── main.py                    # CLI entry point and pipeline orchestrator
 ├── fixer_workflow.py          # HITL fixer workflow orchestrator
-├── install.sh                 # Automated installer (OS detection, deps, DB, validation)
-├── launch.sh                  # Streamlit dashboard launcher
+├── install.sh                 # One-step installer (OS detection, Python, deps, CLI, validation)
+├── launch.sh                  # Dashboard launcher (venv, .env, browser, Streamlit)
 ├── ui/
 │   └── app.py                 # Streamlit web UI dashboard
 ├── config.yaml                # Default configuration (all options documented)

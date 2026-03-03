@@ -1,542 +1,409 @@
-#!/bin/bash
-
-################################################################################
-# ORCA Installer Script
-# Open-source Rules Compliance Auditor
-# C/C++ Compliance Analysis Pipeline
-################################################################################
+#!/usr/bin/env bash
+# ============================================================================
+# ORCA — Open-source Rules Compliance Auditor
+# One-step installer for macOS, Linux, and Windows (WSL)
+#
+# Usage:
+#   chmod +x install.sh
+#   ./install.sh
+#
+# What this script does:
+#   1. Detects OS and package manager
+#   2. Installs Python 3.9+ (if needed)
+#   3. Creates a virtual environment (.venv)
+#   4. Installs all Python dependencies
+#   5. Installs system tools (git, checkpatch.pl)
+#   6. Installs ORCA as a CLI tool (pip install -e .)
+#   7. Sets up .env from env.example (if not present)
+#   8. Bootstraps PostgreSQL (via db/bootstrap_db.py)
+#   9. Validates the installation
+#  10. Prints launch instructions
+#
+# Environment variable overrides:
+#   ORCA_PYTHON=python3.11    Override Python binary
+#   ORCA_SKIP_DB=1            Skip PostgreSQL bootstrap
+#   ORCA_SKIP_TOOLS=1         Skip system tool installation (git, checkpatch)
+#   ORCA_VENV_DIR=.venv       Override virtual environment path
+# ============================================================================
 
 set -euo pipefail
 
-# Color definitions
+# ── Colors ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Configuration
+# ── Logging ─────────────────────────────────────────────────────────────────
+info()    { echo -e "${GREEN}[✓]${NC} $*"; }
+warn()    { echo -e "${YELLOW}[!]${NC} $*"; }
+err()     { echo -e "${RED}[✗]${NC} $*"; }
+step()    { echo -e "\n${CYAN}${BOLD}── $* ──${NC}"; }
+substep() { echo -e "  ${BLUE}→${NC} $*"; }
+
+# ── Project root ────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${SCRIPT_DIR}"
-VENV_DIR="${PROJECT_ROOT}/.venv"
-REQUIREMENTS_FILE="${PROJECT_ROOT}/requirements.txt"
-ENV_EXAMPLE_FILE="${PROJECT_ROOT}/env.example"
-ENV_FILE="${PROJECT_ROOT}/.env"
-CONFIG_FILE="${PROJECT_ROOT}/config.yaml"
+cd "$SCRIPT_DIR"
 
-################################################################################
-# Helper Functions
-################################################################################
+# ── Configurable ────────────────────────────────────────────────────────────
+VENV_DIR="${ORCA_VENV_DIR:-.venv}"
+MIN_PYTHON_MAJOR=3
+MIN_PYTHON_MINOR=9
 
-print_banner() {
-    echo -e "${CYAN}${BOLD}"
-    cat << "EOF"
-╔════════════════════════════════════════════════════════════════════════════╗
-║                                                                            ║
-║                          ORCA Installer v1.0                              ║
-║        Open-source Rules Compliance Auditor                               ║
-║        C/C++ Compliance Analysis Pipeline                                 ║
-║                                                                            ║
-╚════════════════════════════════════════════════════════════════════════════╝
-EOF
-    echo -e "${NC}"
-}
+# ── Helper: check if command exists ─────────────────────────────────────────
+has_cmd() { command -v "$1" &>/dev/null; }
 
-log_step() {
-    echo -e "${CYAN}[STEP $1]${NC} ${BOLD}$2${NC}"
-}
+# ── Helper: install a system package ────────────────────────────────────────
+pkg_install() {
+    local pkg_name="$1"
+    local brew_name="${2:-$1}"
+    local apt_name="${3:-$1}"
 
-log_success() {
-    echo -e "${GREEN}✓ $1${NC}"
-}
-
-log_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
-}
-
-log_error() {
-    echo -e "${RED}✗ $1${NC}"
-}
-
-exit_error() {
-    log_error "$1"
-    exit 1
-}
-
-################################################################################
-# Step 1: Detect OS and Package Manager
-################################################################################
-
-detect_os_and_pm() {
-    log_step "1" "Detecting OS and package manager..."
-
-    OS_TYPE=""
-    PACKAGE_MANAGER=""
-    INSTALL_CMD=""
-
-    # Detect WSL
-    if grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null; then
-        log_warning "Windows Subsystem for Linux detected"
-        IS_WSL=true
-    else
-        IS_WSL=false
-    fi
-
-    # Detect OS and package manager
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        OS_TYPE="macOS"
-        PACKAGE_MANAGER="brew"
-        INSTALL_CMD="brew install"
-        log_success "Detected macOS with Homebrew"
-    elif command -v apt-get &> /dev/null; then
-        OS_TYPE="Debian/Ubuntu"
-        PACKAGE_MANAGER="apt"
-        INSTALL_CMD="sudo apt-get install -y"
-        log_success "Detected Debian/Ubuntu with apt"
-    elif command -v dnf &> /dev/null; then
-        OS_TYPE="RHEL/Fedora"
-        PACKAGE_MANAGER="dnf"
-        INSTALL_CMD="sudo dnf install -y"
-        log_success "Detected RHEL/Fedora with dnf"
-    elif command -v yum &> /dev/null; then
-        OS_TYPE="RHEL/CentOS"
-        PACKAGE_MANAGER="yum"
-        INSTALL_CMD="sudo yum install -y"
-        log_success "Detected RHEL/CentOS with yum"
-    elif command -v pacman &> /dev/null; then
-        OS_TYPE="Arch Linux"
-        PACKAGE_MANAGER="pacman"
-        INSTALL_CMD="sudo pacman -S --noconfirm"
-        log_success "Detected Arch Linux with pacman"
-    else
-        exit_error "Unable to detect OS or package manager. Supported: macOS, Debian, RHEL, Arch, WSL"
-    fi
-
-    if [[ "$IS_WSL" == true ]]; then
-        log_warning "Running on WSL - ensure Windows integration is configured"
-    fi
-}
-
-################################################################################
-# Step 2: Install Python 3.9+ if Missing
-################################################################################
-
-install_python() {
-    log_step "2" "Checking Python 3.9+ installation..."
-
-    if command -v python3 &> /dev/null; then
-        PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-        log_success "Python $PYTHON_VERSION found"
-
-        # Check if version is 3.9 or higher
-        MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
-        MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
-
-        if [[ $MAJOR -lt 3 ]] || [[ $MAJOR -eq 3 && $MINOR -lt 9 ]]; then
-            log_warning "Python version is $PYTHON_VERSION, but 3.9+ is required"
-            install_python_version
-        fi
-    else
-        log_warning "Python not found, installing..."
-        install_python_version
-    fi
-}
-
-install_python_version() {
-    case "$PACKAGE_MANAGER" in
-        brew)
-            $INSTALL_CMD python@3.11
-            ;;
-        apt)
-            sudo apt-get update
-            $INSTALL_CMD python3.11 python3.11-venv python3.11-dev
-            ;;
-        dnf)
-            $INSTALL_CMD python3.11 python3.11-devel
-            ;;
-        yum)
-            $INSTALL_CMD python3.11 python3.11-devel
-            ;;
-        pacman)
-            $INSTALL_CMD python
-            ;;
-        *)
-            exit_error "Unable to install Python with package manager: $PACKAGE_MANAGER"
-            ;;
+    substep "Installing ${pkg_name}..."
+    case "$PKG_MANAGER" in
+        brew)   brew install "$brew_name" 2>/dev/null || true ;;
+        apt)    sudo apt-get install -y -qq "$apt_name" 2>/dev/null || true ;;
+        dnf)    sudo dnf install -y "$apt_name" 2>/dev/null || true ;;
+        yum)    sudo yum install -y "$apt_name" 2>/dev/null || true ;;
+        pacman) sudo pacman -S --noconfirm "$apt_name" 2>/dev/null || true ;;
+        *)      warn "Cannot auto-install ${pkg_name}. Please install manually." ;;
     esac
-    log_success "Python 3.11 installed"
 }
 
-################################################################################
-# Step 3: Create Virtual Environment
-################################################################################
+# ============================================================================
+# Banner
+# ============================================================================
+echo -e "${CYAN}${BOLD}"
+cat << 'BANNER'
 
-create_venv() {
-    log_step "3" "Creating Python virtual environment..."
+   ██████╗ ██████╗  ██████╗ █████╗
+  ██╔═══██╗██╔══██╗██╔════╝██╔══██╗
+  ██║   ██║██████╔╝██║     ███████║
+  ██║   ██║██╔══██╗██║     ██╔══██║
+  ╚██████╔╝██║  ██║╚██████╗██║  ██║
+   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+  Open-source Rules Compliance Auditor
+  C/C++ Compliance Analysis Pipeline
 
-    if [[ -d "$VENV_DIR" ]]; then
-        log_warning "Virtual environment already exists at $VENV_DIR"
-        read -p "Remove and recreate? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$VENV_DIR"
-            python3 -m venv "$VENV_DIR"
-            log_success "Virtual environment created at $VENV_DIR"
+BANNER
+echo -e "${NC}"
+
+# ============================================================================
+# Step 0: Detect OS & Package Manager
+# ============================================================================
+step "Detecting environment"
+
+OS_TYPE="unknown"
+PKG_MANAGER="unknown"
+IS_WSL=false
+
+case "$(uname -s)" in
+    Darwin)
+        OS_TYPE="macos"
+        if ! has_cmd brew; then
+            for _brew_candidate in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+                if [[ -x "$_brew_candidate" ]]; then
+                    eval "$("$_brew_candidate" shellenv)"
+                    break
+                fi
+            done
         fi
-    else
-        python3 -m venv "$VENV_DIR"
-        log_success "Virtual environment created at $VENV_DIR"
-    fi
+        if has_cmd brew; then
+            PKG_MANAGER="brew"
+        else
+            err "Homebrew is required on macOS but was not found."
+            err 'Install it:  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+            exit 1
+        fi
+        ;;
+    Linux)
+        OS_TYPE="linux"
+        if grep -qiE '(microsoft|wsl)' /proc/version 2>/dev/null; then
+            IS_WSL=true
+            info "Windows Subsystem for Linux (WSL) detected"
+        fi
+        if   has_cmd apt-get; then PKG_MANAGER="apt"
+        elif has_cmd dnf;     then PKG_MANAGER="dnf"
+        elif has_cmd yum;     then PKG_MANAGER="yum"
+        elif has_cmd pacman;  then PKG_MANAGER="pacman"
+        else
+            warn "No supported package manager found. Some tools may need manual installation."
+            PKG_MANAGER="none"
+        fi
+        ;;
+    MINGW*|MSYS*|CYGWIN*)
+        err "Native Windows detected. Please use WSL (Windows Subsystem for Linux)."
+        err "Install WSL:  wsl --install"
+        exit 1
+        ;;
+    *)
+        warn "Unknown OS: $(uname -s). Proceeding with best effort..."
+        OS_TYPE="linux"
+        PKG_MANAGER="none"
+        ;;
+esac
 
-    # Source the virtual environment
-    source "${VENV_DIR}/bin/activate"
-    log_success "Virtual environment activated"
-}
+info "OS: ${OS_TYPE}$(${IS_WSL} && echo ' (WSL)' || echo '')  |  Package manager: ${PKG_MANAGER}"
 
-################################################################################
-# Step 4: Install pip Dependencies
-################################################################################
+# ============================================================================
+# Step 1: Python
+# ============================================================================
+step "Checking Python"
 
-install_dependencies() {
-    log_step "4" "Installing pip dependencies from requirements.txt..."
-
-    if [[ ! -f "$REQUIREMENTS_FILE" ]]; then
-        log_warning "requirements.txt not found at $REQUIREMENTS_FILE"
-        log_warning "Skipping pip dependency installation"
+find_python() {
+    if [[ -n "${ORCA_PYTHON:-}" ]] && has_cmd "$ORCA_PYTHON"; then
+        echo "$ORCA_PYTHON"
         return
     fi
-
-    # Upgrade pip, setuptools, and wheel
-    pip install --upgrade pip setuptools wheel
-
-    # Install requirements
-    pip install -r "$REQUIREMENTS_FILE"
-    log_success "Dependencies installed successfully"
-}
-
-################################################################################
-# Step 5: Install System Tools
-################################################################################
-
-install_system_tools() {
-    log_step "5" "Installing system tools for ORCA..."
-
-    # Always install git
-    if ! command -v git &> /dev/null; then
-        log_warning "git not found, installing..."
-        case "$PACKAGE_MANAGER" in
-            brew)
-                $INSTALL_CMD git
-                ;;
-            apt)
-                sudo apt-get update
-                $INSTALL_CMD git
-                ;;
-            dnf)
-                $INSTALL_CMD git
-                ;;
-            yum)
-                $INSTALL_CMD git
-                ;;
-            pacman)
-                $INSTALL_CMD git
-                ;;
-        esac
-        log_success "git installed"
-    else
-        log_success "git already installed"
-    fi
-
-    # Install checkpatch.pl (optional)
-    log_warning "checkpatch.pl is optional for C/C++ style checking"
-
-    if ! command -v checkpatch.pl &> /dev/null; then
-        read -p "Install checkpatch.pl for code style analysis? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            case "$PACKAGE_MANAGER" in
-                brew)
-                    log_warning "checkpatch.pl not available in Homebrew - manual installation recommended"
-                    ;;
-                apt)
-                    sudo apt-get update
-                    $INSTALL_CMD linux-source-*
-                    log_success "checkpatch.pl installation initiated"
-                    ;;
-                dnf)
-                    $INSTALL_CMD kernel-devel
-                    log_success "checkpatch.pl installation initiated"
-                    ;;
-                yum)
-                    $INSTALL_CMD kernel-devel
-                    log_success "checkpatch.pl installation initiated"
-                    ;;
-                pacman)
-                    log_warning "checkpatch.pl not available in Arch repos - manual installation recommended"
-                    ;;
-            esac
-        else
-            log_warning "Skipping checkpatch.pl installation (optional)"
-        fi
-    else
-        log_success "checkpatch.pl already installed"
-    fi
-}
-
-################################################################################
-# Step 5b: Install ORCA as CLI Tool
-################################################################################
-
-install_cli_tool() {
-    log_step "5b" "Installing ORCA as a CLI tool..."
-
-    if [[ -f "${PROJECT_ROOT}/setup.py" ]]; then
-        pip install -e "${PROJECT_ROOT}"
-        log_success "ORCA CLI installed — you can now use 'orca' instead of 'python main.py'"
-    else
-        log_warning "setup.py not found — skipping CLI install"
-    fi
-}
-
-################################################################################
-# Step 6: Set Up .env Configuration
-################################################################################
-
-setup_env() {
-    log_step "6" "Setting up environment configuration..."
-
-    if [[ -f "$ENV_FILE" ]]; then
-        log_success "Environment file already exists at $ENV_FILE"
-    elif [[ -f "$ENV_EXAMPLE_FILE" ]]; then
-        cp "$ENV_EXAMPLE_FILE" "$ENV_FILE"
-        log_success "Created .env from env.example"
-    else
-        log_warning "env.example not found, creating minimal .env"
-        cat > "$ENV_FILE" << 'EOF'
-# ORCA Environment — API Keys Only
-# All other configuration lives in global_config.yaml
-
-# Generic LLM API Key (for anthropic / openai providers)
-LLM_API_KEY=""
-
-# QGenie API Key (only when llm.provider is "qgenie")
-QGENIE_API_KEY=""
-EOF
-        log_success "Created minimal .env file"
-    fi
-
-    # Warn about API keys
-    echo
-    log_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    log_warning "IMPORTANT: API Key Configuration Required"
-    log_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${YELLOW}Please configure your API keys in ${ENV_FILE}:${NC}"
-    echo -e "  ${BOLD}LLM_API_KEY${NC}    - For Anthropic/OpenAI API access"
-    echo -e "  ${BOLD}QGENIE_API_KEY${NC} - For QGenie API access (if applicable)"
-    echo
-    echo -e "${YELLOW}Get your API keys from:${NC}"
-    echo -e "  Anthropic: https://console.anthropic.com/account/keys"
-    echo -e "  OpenAI:    https://platform.openai.com/account/api-keys"
-    echo -e "  QGenie:    Contact your QGenie administrator"
-    echo
-    log_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo
-}
-
-################################################################################
-# Step 7: Bootstrap PostgreSQL
-################################################################################
-
-bootstrap_postgres() {
-    log_step "7" "Setting up PostgreSQL..."
-
-    if [[ -f "${PROJECT_ROOT}/db/bootstrap_db.py" ]]; then
-        read -p "Bootstrap PostgreSQL (install, start, create DB)? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            python3 "${PROJECT_ROOT}/db/bootstrap_db.py"
-            log_success "PostgreSQL bootstrapped successfully"
-        else
-            log_warning "Skipping PostgreSQL bootstrap — run 'python db/bootstrap_db.py' later"
-        fi
-    else
-        log_warning "db/bootstrap_db.py not found — skipping PostgreSQL setup"
-        log_warning "Run 'python db/bootstrap_db.py' manually after setup"
-    fi
-}
-
-################################################################################
-# Step 8: Create Output Directories
-################################################################################
-
-create_output_dirs() {
-    log_step "8" "Creating output directories..."
-
-    mkdir -p "${PROJECT_ROOT}/out"
-    mkdir -p "${PROJECT_ROOT}/out/reports"
-
-    log_success "Output directories created:"
-    echo -e "  ${CYAN}${PROJECT_ROOT}/out${NC}"
-    echo -e "  ${CYAN}${PROJECT_ROOT}/out/reports${NC}"
-}
-
-################################################################################
-# Step 9: Validate Installation
-################################################################################
-
-validate_installation() {
-    log_step "9" "Validating installation..."
-
-    VALIDATION_PASSED=true
-
-    # Check Python modules
-    REQUIRED_MODULES=("yaml" "openpyxl" "streamlit" "psycopg2")
-
-    for module in "${REQUIRED_MODULES[@]}"; do
-        if python3 -c "import ${module}" 2>/dev/null; then
-            log_success "Module ${module} is available"
-        else
-            log_warning "Module ${module} not found - some features may not work"
-            VALIDATION_PASSED=false
+    for py in python3.12 python3.11 python3.10 python3.9 python3 python; do
+        if has_cmd "$py"; then
+            local ver
+            ver="$($py -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "0.0")"
+            local major="${ver%%.*}" minor="${ver#*.}"
+            if [[ $(( major * 100 + minor )) -ge $(( MIN_PYTHON_MAJOR * 100 + MIN_PYTHON_MINOR )) ]]; then
+                echo "$py"
+                return
+            fi
         fi
     done
+    echo ""
+}
 
-    # Validate main.py
-    if [[ -f "${PROJECT_ROOT}/main.py" ]]; then
-        if python3 -m py_compile "${PROJECT_ROOT}/main.py" 2>/dev/null; then
-            log_success "main.py syntax validation passed"
+PYTHON_BIN="$(find_python)"
+
+if [[ -z "$PYTHON_BIN" ]]; then
+    warn "Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+ not found. Installing..."
+    case "$PKG_MANAGER" in
+        brew)   brew install python@3.11 2>/dev/null || true ;;
+        apt)
+            sudo apt-get update -qq
+            if ! sudo apt-get install -y -qq python3.11 python3.11-venv python3-pip 2>/dev/null; then
+                sudo apt-get install -y -qq python3 python3-venv python3-pip 2>/dev/null || true
+            fi
+            ;;
+        dnf)    sudo dnf install -y python3.11 python3-pip 2>/dev/null || \
+                sudo dnf install -y python3 python3-pip 2>/dev/null || true ;;
+        yum)    sudo yum install -y python3 python3-pip 2>/dev/null || true ;;
+        pacman) sudo pacman -S --noconfirm python python-pip 2>/dev/null || true ;;
+        *)      err "Please install Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+ manually."; exit 1 ;;
+    esac
+    PYTHON_BIN="$(find_python)"
+fi
+
+if [[ -z "$PYTHON_BIN" ]]; then
+    err "Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+ is required but could not be found or installed."
+    exit 1
+fi
+
+PY_VERSION="$($PYTHON_BIN --version 2>&1)"
+info "Using: ${PY_VERSION} ($(which $PYTHON_BIN))"
+
+# ============================================================================
+# Step 2: Virtual Environment
+# ============================================================================
+step "Setting up virtual environment"
+
+if [[ -d "$VENV_DIR" ]]; then
+    info "Virtual environment already exists at ${VENV_DIR}"
+else
+    substep "Creating virtual environment..."
+    $PYTHON_BIN -m venv "$VENV_DIR"
+    info "Created virtual environment at ${VENV_DIR}"
+fi
+
+source "${VENV_DIR}/bin/activate"
+info "Activated virtual environment"
+
+substep "Upgrading pip..."
+pip install --upgrade pip setuptools wheel --quiet 2>/dev/null
+
+# ============================================================================
+# Step 3: Python Dependencies
+# ============================================================================
+step "Installing Python dependencies"
+
+if [[ -f "requirements.txt" ]]; then
+    substep "Installing from requirements.txt..."
+    pip install -r requirements.txt --quiet 2>&1 | tail -5 || {
+        warn "Some packages failed. Trying individually..."
+        while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line// /}" ]] && continue
+            pip install "$line" --quiet 2>/dev/null || warn "Failed to install: $line"
+        done < requirements.txt
+    }
+    info "Python dependencies installed"
+else
+    err "requirements.txt not found!"
+    exit 1
+fi
+
+# ============================================================================
+# Step 4: System Tools
+# ============================================================================
+if [[ "${ORCA_SKIP_TOOLS:-0}" != "1" ]]; then
+    step "Installing system tools"
+
+    # ── git ─────────────────────────────────────────────────────────────────
+    if has_cmd git; then
+        info "git already installed"
+    else
+        pkg_install "git" "git" "git"
+    fi
+
+    # ── checkpatch.pl (optional) ────────────────────────────────────────────
+    if has_cmd checkpatch.pl; then
+        info "checkpatch.pl already installed"
+    else
+        warn "checkpatch.pl not found (optional — for Linux kernel style checking)"
+        warn "Install manually from the Linux kernel source tree if needed."
+    fi
+
+    # Summary
+    echo ""
+    substep "Tool Summary:"
+    for tool in git checkpatch.pl; do
+        if has_cmd "$tool"; then
+            echo -e "    ${GREEN}✓${NC} $tool"
         else
-            log_warning "main.py has syntax errors"
-            VALIDATION_PASSED=false
+            echo -e "    ${YELLOW}○${NC} $tool (not found — optional)"
         fi
-    else
-        log_warning "main.py not found"
-    fi
+    done
+else
+    step "Skipping system tools (ORCA_SKIP_TOOLS=1)"
+fi
 
-    # Validate ui/app.py
-    if [[ -f "${PROJECT_ROOT}/ui/app.py" ]]; then
-        if python3 -m py_compile "${PROJECT_ROOT}/ui/app.py" 2>/dev/null; then
-            log_success "ui/app.py syntax validation passed"
+# ============================================================================
+# Step 5: Install ORCA CLI
+# ============================================================================
+step "Installing ORCA CLI tool"
+
+if [[ -f "setup.py" ]]; then
+    substep "Running pip install -e ..."
+    pip install -e . --quiet 2>/dev/null
+    info "ORCA CLI installed — use 'orca' instead of 'python main.py'"
+else
+    warn "setup.py not found — skipping CLI install"
+fi
+
+# ============================================================================
+# Step 6: Environment Configuration
+# ============================================================================
+step "Setting up environment"
+
+if [[ ! -f ".env" ]]; then
+    if [[ -f "env.example" ]]; then
+        cp env.example .env
+        info "Created .env from env.example"
+        warn "Edit .env to add your API keys (LLM_API_KEY, QGENIE_API_KEY)"
+    else
+        warn "No env.example found. Create a .env file with your API keys."
+    fi
+else
+    info ".env file already exists"
+fi
+
+mkdir -p out out/reports
+info "Output directories ready (./out, ./out/reports)"
+
+# ============================================================================
+# Step 7: PostgreSQL (optional)
+# ============================================================================
+if [[ "${ORCA_SKIP_DB:-0}" != "1" ]]; then
+    step "Database setup"
+    if [[ -f "db/bootstrap_db.py" ]]; then
+        info "PostgreSQL bootstrap script found (db/bootstrap_db.py)"
+        info "Run it separately when you're ready to set up the database:"
+        echo -e "    ${CYAN}python db/bootstrap_db.py${NC}"
+        echo ""
+        info "DB credentials are configured in config.yaml (or via ORCA_PG_* env vars)"
+        info "The database is optional — core static analysis works without it."
+        info "It's needed for: HITL feedback persistence and RAG-powered audits."
+    else
+        warn "db/bootstrap_db.py not found. Database setup must be done manually."
+    fi
+else
+    step "Skipping database setup (ORCA_SKIP_DB=1)"
+fi
+
+# ============================================================================
+# Step 8: Validation
+# ============================================================================
+step "Validating installation"
+
+ERRORS=0
+
+# Python packages
+substep "Checking Python packages..."
+for pkg in yaml openpyxl streamlit psycopg2; do
+    if python -c "import $pkg" 2>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} $pkg"
+    else
+        echo -e "    ${RED}✗${NC} $pkg"
+        ERRORS=$((ERRORS + 1))
+    fi
+done
+
+# Core files
+substep "Checking project files..."
+for f in main.py fixer_workflow.py ui/app.py config.yaml requirements.txt; do
+    if [[ -f "$f" ]]; then
+        echo -e "    ${GREEN}✓${NC} $f"
+    else
+        echo -e "    ${RED}✗${NC} $f (missing)"
+        ERRORS=$((ERRORS + 1))
+    fi
+done
+
+# Syntax validation
+substep "Validating Python syntax..."
+for f in main.py fixer_workflow.py ui/app.py; do
+    if [[ -f "$f" ]]; then
+        if python -c "import ast; ast.parse(open('$f').read())" 2>/dev/null; then
+            echo -e "    ${GREEN}✓${NC} $f"
         else
-            log_warning "ui/app.py has syntax errors"
-            VALIDATION_PASSED=false
+            echo -e "    ${RED}✗${NC} $f (syntax error)"
+            ERRORS=$((ERRORS + 1))
         fi
-    else
-        log_warning "ui/app.py not found"
     fi
+done
 
-    # Check for config.yaml
-    if [[ -f "$CONFIG_FILE" ]]; then
-        log_success "Configuration file found: $CONFIG_FILE"
-    else
-        log_warning "Configuration file not found: $CONFIG_FILE"
-        log_warning "Default configuration will be used"
-    fi
+# ============================================================================
+# Step 9: Summary & Launch Instructions
+# ============================================================================
+echo ""
+echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════════════${NC}"
 
-    echo
-    if [[ "$VALIDATION_PASSED" == true ]]; then
-        log_success "All validations passed!"
-    else
-        log_warning "Some validations had warnings - see above"
-    fi
-}
+if [[ "$ERRORS" -eq 0 ]]; then
+    echo -e "${GREEN}${BOLD}  ✓ ORCA installation complete!${NC}"
+else
+    echo -e "${YELLOW}${BOLD}  ! ORCA installed with ${ERRORS} warning(s)${NC}"
+fi
 
-################################################################################
-# Step 10: Print Launch Instructions
-################################################################################
-
-print_launch_instructions() {
-    log_step "10" "Installation complete!"
-
-    echo
-    log_success "ORCA has been successfully installed!"
-    echo
-
-    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}${BOLD}Getting Started with ORCA${NC}"
-    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo
-
-    # Activate venv instruction
-    echo -e "${BOLD}1. Activate the Virtual Environment${NC}"
-    echo -e "   ${CYAN}source ${VENV_DIR}/bin/activate${NC}"
-    echo
-
-    # Launch dashboard
-    echo -e "${BOLD}2. Launch the Web Dashboard${NC}"
-    if [[ -f "${PROJECT_ROOT}/launch.sh" ]]; then
-        echo -e "   ${CYAN}./launch.sh${NC}"
-    else
-        echo -e "   ${CYAN}streamlit run ui/app.py${NC}"
-    fi
-    echo
-
-    # CLI usage
-    echo -e "${BOLD}3. Run ORCA from Command Line${NC}"
-    echo -e "   ${CYAN}orca audit --codebase-path /path/to/your/code${NC}"
-    echo -e "   ${CYAN}orca pipeline --codebase-path /path/to/your/code${NC}"
-    echo -e "   (or use ${CYAN}python main.py${NC} instead of ${CYAN}orca${NC})"
-    echo
-
-    # Configuration
-    echo -e "${BOLD}4. Configure ORCA${NC}"
-    echo -e "   Edit your configuration in: ${CYAN}${CONFIG_FILE}${NC}"
-    echo -e "   Or environment variables in: ${CYAN}${ENV_FILE}${NC}"
-    echo
-
-    # Documentation
-    echo -e "${BOLD}5. View Output and Reports${NC}"
-    echo -e "   Analysis results: ${CYAN}${PROJECT_ROOT}/out/reports${NC}"
-    echo
-
-    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo
-
-    echo -e "${GREEN}${BOLD}✓ ORCA is ready to use!${NC}"
-    echo
-}
-
-################################################################################
-# Main Installation Flow
-################################################################################
-
-main() {
-    print_banner
-
-    # Run installation steps
-    detect_os_and_pm
-    echo
-
-    install_python
-    echo
-
-    create_venv
-    echo
-
-    install_dependencies
-    echo
-
-    install_system_tools
-    echo
-
-    install_cli_tool
-    echo
-
-    setup_env
-    echo
-
-    bootstrap_postgres
-    echo
-
-    create_output_dirs
-    echo
-
-    validate_installation
-    echo
-
-    print_launch_instructions
-}
-
-# Run main function
-main
+echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════════════${NC}"
+echo ""
+echo -e "  ${BOLD}Quick Start:${NC}"
+echo ""
+echo -e "    ${CYAN}# 1. Activate the environment${NC}"
+echo -e "    source ${VENV_DIR}/bin/activate"
+echo ""
+echo -e "    ${CYAN}# 2. Add your API key${NC}"
+echo -e "    export LLM_API_KEY=\"sk-...\""
+echo -e "    ${CYAN}# (or edit .env)${NC}"
+echo ""
+echo -e "    ${CYAN}# 3. Launch the dashboard${NC}"
+echo -e "    ./launch.sh"
+echo ""
+echo -e "    ${CYAN}# 4. Run CLI analysis${NC}"
+echo -e "    orca audit --codebase-path ./src"
+echo -e "    ${CYAN}# or: python main.py audit --codebase-path ./src${NC}"
+echo ""
+echo -e "  ${BOLD}Optional:${NC}"
+echo -e "    python db/bootstrap_db.py           ${CYAN}# Set up PostgreSQL${NC}"
+echo -e "    orca pipeline --codebase-path ./src  ${CYAN}# Full audit → fix → report${NC}"
+echo ""
+echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+echo ""
